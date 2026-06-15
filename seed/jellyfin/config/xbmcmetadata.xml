@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Maps to /config/xbmcmetadata.xml (JELLYFIN_CONFIG_DIR=/config). Output options
+     for the Nfo metadata saver (the libraries write Kodi-style .nfo + local images).
+     Values match Jellyfin's defaults today; seeded so the NFO contract is explicit
+     and survives a re-seed. Seeded after first boot alongside system/network.xml. -->
+<XbmcMetadataOptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <UserId />
+  <ReleaseDateFormat>yyyy-MM-dd</ReleaseDateFormat>
+  <SaveImagePathsInNfo>true</SaveImagePathsInNfo>
+  <EnablePathSubstitution>true</EnablePathSubstitution>
+  <EnableExtraThumbsDuplication>false</EnableExtraThumbsDuplication>
+</XbmcMetadataOptions>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Maps to /config/encoding.xml (JELLYFIN_CONFIG_DIR=/config). Enables Intel Quick Sync (QSV)
+     hardware decode/encode and HDR-to-SDR tone mapping on the N150's iGPU.
+     Requires /dev/dri passthrough + the render group (handled in compose). -->
+<EncodingOptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <HardwareAccelerationType>qsv</HardwareAccelerationType>
+  <QsvDevice>/dev/dri/renderD128</QsvDevice>
+  <EnableHardwareEncoding>true</EnableHardwareEncoding>
+  <EnableTonemapping>true</EnableTonemapping>
+  <TonemappingAlgorithm>bt2390</TonemappingAlgorithm>
+  <AllowHevcEncoding>true</AllowHevcEncoding>
+  <AllowAv1Encoding>false</AllowAv1Encoding>
+  <EnableDecodingColorDepth10Hevc>true</EnableDecodingColorDepth10Hevc>
+  <EnableEnhancedNvdecDecoder>false</EnableEnhancedNvdecDecoder>
+  <HardwareDecodingCodecs>
+    <string>h264</string>
+    <string>hevc</string>
+    <string>vc1</string>
+    <string>vp9</string>
+    <string>av1</string>
+  </HardwareDecodingCodecs>
+</EncodingOptions>

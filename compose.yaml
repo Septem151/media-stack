@@ -1,0 +1,245 @@
+# Media stack: gluetun(Mullvad) + qBittorrent + slskd + Prowlarr + Sonarr +
+# Radarr + Recyclarr + Jellyfin(QSV) + Picard + nginx + certbot + Pi-hole + ddclient.
+# Rationale: see README.md (Design notes). Interpolated vars come from .env.
+# Run: ./scripts/stack up  (see README.md).
+
+services:
+
+  # ---- VPN gateway (Mullvad WireGuard) — needs NET_ADMIN ------------------
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: mullvad
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WIREGUARD_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WIREGUARD_ADDRESSES}
+      SERVER_CITIES: ${MULLVAD_CITIES}
+      FIREWALL_OUTBOUND_SUBNETS: ${LAN_SUBNET}
+      TZ: ${TZ:-America/Chicago}
+    ports:
+      - "${LAN_IP}:${QBIT_WEBUI_PORT}:${QBIT_WEBUI_PORT}"   # qB UI, LAN only
+      - "${LAN_IP}:${SLSKD_PORT}:${SLSKD_PORT}"             # slskd UI, LAN only
+    restart: unless-stopped
+
+  # ---- Download client (all traffic via gluetun) --------------------------
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    security_opt: [no-new-privileges:true]
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun: { condition: service_started }
+    environment:
+      PUID: ${QBIT_UID}
+      PGID: ${MEDIA_GID}
+      UMASK: ${UMASK:-002}
+      TZ: ${TZ:-America/Chicago}
+      WEBUI_PORT: ${QBIT_WEBUI_PORT}
+    volumes:
+      - ./appdata/qbittorrent:/config
+      - ${DATA_ROOT}:/data
+    restart: unless-stopped
+
+  # ---- Soulseek client (all traffic via gluetun) --------------------------
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    security_opt: [no-new-privileges:true]
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun: { condition: service_started }
+    user: "${SLSKD_UID}:${MEDIA_GID}"            # fully non-root
+    environment:
+      TZ: ${TZ:-America/Chicago}
+      SLSKD_HTTP_PORT: ${SLSKD_PORT}
+      SLSKD_DOWNLOADS_DIR: /data/downloads
+      SLSKD_SHARED_DIR: /data/media/music
+      SLSKD_REMOTE_CONFIGURATION: "true"
+    volumes:
+      - ./appdata/slskd:/app
+      - ${DATA_ROOT}:/data
+    restart: unless-stopped
+
+  # ---- Indexer manager ----------------------------------------------------
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    security_opt: [no-new-privileges:true]
+    environment:
+      PUID: ${PROWLARR_UID}
+      PGID: ${MEDIA_GID}
+      UMASK: ${UMASK:-002}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ./appdata/prowlarr:/config
+    ports:
+      - "${LAN_IP}:${PROWLARR_PORT}:9696"        # LAN only
+    restart: unless-stopped
+
+  # ---- CloudFlare bypass ---------------------------------------------------
+  flaresolverr:
+    image: flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    security_opt: [no-new-privileges:true]
+    environment:
+      LANG: en_US
+      TZ: ${TZ:-America/Chicago}
+    restart: unless-stopped
+
+  # ---- TV ------------------------------------------------------------------
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    security_opt: [no-new-privileges:true]
+    environment:
+      PUID: ${SONARR_UID}
+      PGID: ${MEDIA_GID}
+      UMASK: ${UMASK:-002}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ./appdata/sonarr:/config
+      - ${DATA_ROOT}:/data
+    ports:
+      - "${LAN_IP}:${SONARR_PORT}:8989"          # LAN only
+    restart: unless-stopped
+
+  # ---- Movies --------------------------------------------------------------
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    security_opt: [no-new-privileges:true]
+    environment:
+      PUID: ${RADARR_UID}
+      PGID: ${MEDIA_GID}
+      UMASK: ${UMASK:-002}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ./appdata/radarr:/config
+      - ${DATA_ROOT}:/data
+    ports:
+      - "${LAN_IP}:${RADARR_PORT}:7878"          # LAN only
+    restart: unless-stopped
+
+  # ---- TRaSH quality/custom-format sync (scheduled CLI, no web UI) ---------
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    security_opt: [no-new-privileges:true]
+    user: "${RECYCLARR_UID}:${MEDIA_GID}"        # fully non-root
+    environment:
+      TZ: ${TZ:-America/Chicago}
+      CRON_SCHEDULE: "0 3 * * *"
+      RECYCLARR_CREATE_CONFIG: "false"
+    volumes:
+      - ./appdata/recyclarr:/config
+    depends_on: [sonarr, radarr]
+    restart: unless-stopped
+
+  # ---- Media server (Intel Quick Sync) ------------------------------------
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    security_opt: [no-new-privileges:true]
+    network_mode: host                           # required for client auto-discovery
+    group_add:
+      - "${RENDER_GID}"                          # /dev/dri access for QSV
+    devices:
+      - /dev/dri:/dev/dri
+    environment:
+      PUID: ${JELLYFIN_UID}
+      PGID: ${MEDIA_GID}
+      UMASK: ${UMASK:-002}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ./appdata/jellyfin:/config
+      - ${DATA_ROOT}/media:/media
+    restart: unless-stopped
+
+  # ---- Music tagger (MusicBrainz Picard, noVNC web GUI) -------------------
+  picard:
+    image: mikenye/picard:latest
+    container_name: picard
+    security_opt: [no-new-privileges:true]
+    environment:
+      USER_ID: ${PICARD_UID}
+      GROUP_ID: ${MEDIA_GID}
+      UMASK: ${UMASK:-002}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ./appdata/picard:/config
+      - ${DATA_ROOT}/downloads:/storage/downloads
+      - ${DATA_ROOT}/media/music:/storage/music
+    ports:
+      - "${LAN_IP}:${PICARD_PORT}:5800"          # LAN only
+    restart: unless-stopped
+
+  # ---- Reverse proxy + TLS (root master binds 80/443 & reads LE key) ------
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    security_opt: [no-new-privileges:true]
+    depends_on: [jellyfin]
+    ports:
+      - "80:80"          # public
+      - "443:443"        # public
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certs/letsencrypt:/etc/letsencrypt:ro
+      - ./certs/selfsigned:/etc/nginx/selfsigned:ro
+      - ./certs/acme-challenge:/var/www/certbot:ro
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+    restart: unless-stopped
+
+  # ---- Let's Encrypt issuance + auto-renewal ------------------------------
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    volumes:
+      - ./certs/letsencrypt:/etc/letsencrypt
+      - ./certs/acme-challenge:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+    restart: unless-stopped
+
+  # ---- Split-horizon DNS + ad blocking ------------------------------------
+  # No PUID/PGID — runs as root:media + umask 002 (files 664).
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    user: "0:${MEDIA_GID}"
+    entrypoint: ["/bin/sh", "-c", "umask 002 && exec /usr/bin/start.sh \"$@\"", "--"]
+    cap_add: [NET_ADMIN]
+    environment:
+      TZ: ${TZ:-America/Chicago}
+      FTLCONF_dns_listeningMode: 'ALL'
+      FTLCONF_misc_etc_dnsmasq_d: 'true'
+    volumes:
+      - ./appdata/pihole/etc-pihole:/etc/pihole
+      - ./appdata/pihole/etc-dnsmasq.d:/etc/dnsmasq.d
+    ports:
+      - "${LAN_IP}:53:53/udp"
+      - "${LAN_IP}:53:53/tcp"
+      # Host's own resolver -> Pi-hole; it can't hairpin its published LAN-IP :53.
+      - "127.0.0.1:53:53/udp"
+      - "127.0.0.1:53:53/tcp"
+      - "${LAN_IP}:${PIHOLE_WEBUI_PORT}:80"
+    restart: unless-stopped
+
+  # ---- Dynamic DNS (Namecheap) -------------------------------------------
+  ddclient:
+    image: lscr.io/linuxserver/ddclient:latest
+    container_name: ddclient
+    security_opt: [no-new-privileges:true]
+    environment:
+      PUID: ${DDCLIENT_UID}
+      PGID: ${MEDIA_GID}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      # Single-file mount guards the DDNS secret (image chmods the file 0600).
+      - ./appdata/ddclient/ddclient.conf:/config/ddclient.conf
+    restart: unless-stopped

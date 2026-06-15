@@ -1,0 +1,119 @@
+# Rendered to ../conf.d/default.conf by `stack up`, substituting
+# ${PUBLIC_SERVER_NAMES}, ${JELLYFIN_HOSTNAME}, ${QBIT_WEBUI_PORT}, ${SLSKD_PORT}.
+# PUBLIC_SERVER_NAMES = DOMAIN + JELLYFIN_HOSTNAME, deduped to one when equal
+# (apex serving: the apex proxies straight to Jellyfin — no apex->subdomain redirect).
+
+# HTTP: ACME challenge, then force HTTPS.
+server {
+    listen 80;
+    server_name ${PUBLIC_SERVER_NAMES};
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# Jellyfin (public, Let's Encrypt cert).
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${PUBLIC_SERVER_NAMES};
+    ssl_certificate     /etc/letsencrypt/live/${JELLYFIN_HOSTNAME}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${JELLYFIN_HOSTNAME}/privkey.pem;
+    location / {
+        include /etc/nginx/conf.d/jellyfin_proxy.inc;
+    }
+}
+
+# LAN / direct-IP (self-signed cert).
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name _;
+    ssl_certificate     /etc/nginx/selfsigned/lan.crt;
+    ssl_certificate_key /etc/nginx/selfsigned/lan.key;
+    location / {
+        include /etc/nginx/conf.d/jellyfin_proxy.inc;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# LAN-only friendly hostnames (no port to remember). Shared listen/TLS/ACL come
+# from lan_vhost.inc; shared proxy bits from lan_proxy.inc. Resolve the names via
+# /etc/hosts on this box (stack setup) or via Pi-hole for the whole network.
+server {
+    server_name jellyfin.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://${LAN_IP}:8096;
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    server_name sonarr.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://sonarr:8989;
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    server_name radarr.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://radarr:7878;
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    server_name prowlarr.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://prowlarr:9696;
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    # qBittorrent shares gluetun's network namespace, so it's reached via gluetun.
+    server_name qbittorrent.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://gluetun:${QBIT_WEBUI_PORT};
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    server_name pihole.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://pihole:80;
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    # slskd shares gluetun's network namespace, so it's reached via gluetun.
+    server_name slskd.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://gluetun:${SLSKD_PORT};
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}
+server {
+    server_name picard.lan;
+    include /etc/nginx/conf.d/lan_vhost.inc;
+    location / {
+        set $upstream http://picard:5800;
+        proxy_pass $upstream;
+        include /etc/nginx/conf.d/lan_proxy.inc;
+    }
+}

@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""media-stack control CLI. One entrypoint for the whole stack:
+
+  ./scripts/stack up                       bring up (first run auto-runs setup)
+  ./scripts/stack down [--clean]           stop/remove; --clean wipes to re-seed
+                       [--certs] [--pihole]   (with --clean: also wipe those)
+  ./scripts/stack restart                  down + up (keeps data)
+  ./scripts/stack setup [--only users|firewall|dns]   sudo host prep
+  ./scripts/stack status                   setup checklist + container status
+  ./scripts/stack logs [-f] [service...]   container logs (all or named; -f to follow)
+  ./scripts/stack fmt | lint | check       dev: isort+black | pylint | mypy --strict
+
+Global: -y/--yes bypasses confirmations."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import shutil
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _stack import dev, lib, lifecycle  # pylint: disable=wrong-import-position
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Construct the argparse parser."""
+    p = argparse.ArgumentParser(prog="stack", description="Media-stack control CLI.")
+    p.add_argument(
+        "-y", "--yes", action="store_true", help="assume yes for all confirmations"
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("up", help="bring the stack up (first run auto-runs setup)")
+
+    d = sub.add_parser("down", help="stop and remove containers (data kept)")
+    d.add_argument(
+        "--clean",
+        action="store_true",
+        help="also wipe regenerable state (appdata, rendered nginx) to re-seed",
+    )
+    d.add_argument(
+        "--certs", action="store_true", help="with --clean: also wipe certs/"
+    )
+    d.add_argument(
+        "--pihole",
+        action="store_true",
+        help="with --clean: also wipe Pi-hole's appdata",
+    )
+
+    sub.add_parser("restart", help="down + up (keeps data)")
+
+    s = sub.add_parser("setup", help="sudo host prep: users/ownership/ACLs + firewall")
+    s.add_argument(
+        "--only", choices=["users", "firewall", "dns"], help="run only one part"
+    )
+
+    sub.add_parser("status", help="show setup-step checklist + container status")
+
+    lg = sub.add_parser(
+        "logs", help="show container logs (all, or named services; -f to follow)"
+    )
+    lg.add_argument(
+        "-f", "--follow", action="store_true", help="follow log output (Ctrl-C to stop)"
+    )
+    lg.add_argument(
+        "services", nargs="*", help="specific service(s) to show (default: all)"
+    )
+
+    sub.add_parser("fmt", help="dev: format the code (isort + black)")
+    sub.add_parser("lint", help="dev: lint the code (pylint)")
+    sub.add_parser("check", help="dev: type-check the code (mypy --strict)")
+    return p
+
+
+# Dev verbs need no .env; dispatched before env is loaded.
+DEV_CMDS = {"fmt": dev.fmt, "lint": dev.lint, "check": dev.check}
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Parse arguments and dispatch the chosen command."""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.cmd == "down" and (args.certs or args.pihole) and not args.clean:
+        parser.error("--certs/--pihole only apply with --clean")
+
+    os.chdir(lib.REPO_ROOT)  # so `docker compose` finds compose.yaml + .env
+    os.umask(0o002)  # rendered files stay group-writable (media group)
+
+    try:
+        if args.cmd in DEV_CMDS:
+            DEV_CMDS[args.cmd]()
+            return 0
+        env = ensure_env(args.cmd)
+        if args.cmd == "up":
+            lifecycle.up(env, args.yes)
+        elif args.cmd == "down":
+            lifecycle.down(args.clean, args.certs, args.pihole, args.yes)
+        elif args.cmd == "restart":
+            lifecycle.restart(env, args.yes)
+        elif args.cmd == "setup":
+            lifecycle.setup(env, args.only, args.yes)
+        elif args.cmd == "status":
+            lifecycle.status(env)
+        elif args.cmd == "logs":
+            lifecycle.logs(args.services, args.follow)
+    except lib.StackError as e:
+        lib.err(str(e))
+        return 1
+    except KeyboardInterrupt:
+        lib.err("interrupted.")
+        return 130
+    return 0
+
+
+def ensure_env(cmd: str) -> dict[str, str]:
+    """Load .env. On first `up`, create it from the example and stop so the
+    operator can fill it in; other commands require it to already exist."""
+    if lib.ENV_FILE.exists():
+        return lib.load_env()
+    if cmd == "up":
+        shutil.copyfile(lib.ENV_EXAMPLE, lib.ENV_FILE)
+        lib.ENV_FILE.chmod(0o600)
+        lib.info(
+            "Created .env from .env.example. Fill it in, then re-run "
+            "./scripts/stack up"
+        )
+        sys.exit(0)
+    raise lib.StackError(
+        "`.env` not found — copy .env.example and fill it in, then re-run."
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

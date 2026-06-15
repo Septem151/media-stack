@@ -1,0 +1,8 @@
+{
+    "movies": {
+        "save_path": "/data/torrents/movies"
+    },
+    "tv": {
+        "save_path": "/data/torrents/tv"
+    }
+}

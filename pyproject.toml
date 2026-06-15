@@ -1,0 +1,43 @@
+# Dev tooling only — the runtime stays stdlib-only. Install the tools with:
+#   sudo pacman -S --needed python-black python-isort mypy python-pylint python-pytest
+# Run them through the CLI: ./scripts/stack fmt | lint | check
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["scripts/_stack", "scripts/stack"]
+
+# Testing is deferred (manual vs pytest, TBD). Config is ready for a future tests/ dir.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pylint.main]
+py-version = "3.13"
+
+[tool.pylint.format]
+max-line-length = 88
+
+[tool.pylint.basic]
+# Short names that match the deliberate terse style.
+good-names = [
+    "i", "j", "k", "e", "_",
+    "d", "p", "r", "m", "s", "st", "pw", "qb", "jf", "fp", "kw", "lan",
+]
+
+[tool.pylint.design]
+max-args = 8
+max-positional-arguments = 8
+
+[tool.pylint."messages control"]
+disable = [
+    "too-few-public-methods",  # StackError is a marker exception
+    "duplicate-code",          # false-positives on the dir-name list constants
+]

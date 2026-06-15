@@ -1,0 +1,94 @@
+# Recyclarr config — synced into appdata/recyclarr/recyclarr.yml on first run.
+# API keys/urls are injected by stack up (it writes the resolved values here).
+#
+# Self-contained on purpose: this recyclarr/config-templates version ships no
+# `include` fragments (includes.json is empty), so we reference TRaSH profiles by
+# trash_id directly. Custom formats are opt-in in the current TRaSH templates; to
+# add them, generate a starter and copy the custom_format(_groups) block in:
+#   docker compose run --rm recyclarr config create --template web-1080p --template hd-bluray-web
+
+# Instance names must be unique across all services (recyclarr v8), so they are
+# named per-service rather than both "main".
+sonarr:
+  tv:
+    base_url: http://sonarr:8989
+    api_key: ${SONARR_API_KEY}
+    quality_definition:
+      type: series
+    quality_profiles:
+      - trash_id: 72dae194fc92bf828f32cde7744e51a1  # WEB-1080p
+        reset_unmatched_scores:
+          enabled: true
+      - trash_id: 9d142234e45d6143785ac55f5a9e8dc9  # WEB-1080p (Alternative)
+        reset_unmatched_scores:
+          enabled: true
+      - trash_id: 20e0fc959f1f1704bed501f23bdae76f  # [Anime] Remux-1080p
+        reset_unmatched_scores:
+          enabled: true
+    media_naming:
+      series: jellyfin-tvdb
+      season: default
+      episodes:
+        rename: true
+        standard: default
+        daily: default
+        anime: default
+    media_management:
+      propers_and_repacks: do_not_prefer
+    delete_old_custom_formats: true
+    custom_format_groups:
+      add:
+        - trash_id: 59c3af66780d08332fdc64e68297098f  # [Unwanted] Unwanted Formats
+          select:
+            - 82d40da2bc6923f41e14394075dd4b03  # No-RlsGroup
+            - e1a997ddb54e3ecbfe06341ad323c458  # Obfuscated
+            - 06d66ab109d4d2eddb2794d21526d140  # Retags
+        - trash_id: 7832db22b71ab669458c17a2850d6913  # [Streaming Services] Miscellaneous
+          select:
+            - e6e299075e22ac8f541f722254c8350a  # AUBC
+            - defb0b4c8b3f6a15927c0f14c6e69c94  # CBC
+            - 4e9a630db98d5391aec1368a0256e2fe  # CRAV
+            - dc5f2bb0e0262155b5fedd0f6c5d2b55  # DSCP
+            - fb1a91cdc0f26f7ca0696e0e95274645  # OViD
+            - fe4062eac43d4ea75955f8ae48adcf1e  # STRP
+            - c30d2958827d1867c73318a5a2957eb1  # RED
+            - 3ac5d84fce98bab1b531393e9c82f467  # QIBI
+radarr:
+  movies:
+    base_url: http://radarr:7878
+    api_key: ${RADARR_API_KEY}
+    quality_definition:
+      type: movie
+    quality_profiles:
+      - trash_id: d1d67249d3890e49bc12e275d989a7e9  # HD Bluray + WEB
+        reset_unmatched_scores:
+          enabled: true
+    media_naming:
+      folder: jellyfin-tmdb
+      movie:
+        rename: true
+        standard: jellyfin-tmdb
+    media_management:
+      propers_and_repacks: do_not_prefer
+    delete_old_custom_formats: true
+    custom_format_groups:
+      add:
+        - trash_id: a3ac6af01d78e4f21fcb75f601ac96df  # [Unwanted] Unwanted Formats
+          select:
+            - ae9b7c9ebde1f3bd336a8cbd1ec4c5e5  # No-RlsGroup
+            - 7357cf5161efbf8c4d5d0c30b4815ee2  # Obfuscated
+            - 5c44f52a8714fdd79bb4d98e2673be1f  # Retags
+        - trash_id: f4f1474b963b24cf983455743aa9906c  # [Optional] Movie Versions
+          select:
+            - eca37840c13c6ef2dd0262b141a5482f  # 4K Remaster
+            - eecf3a857724171f968a66cb5719e152  # IMAX
+            - 9f6cbff8cfe4ebbc1bde14c7b7bec0de  # IMAX Enhanced
+            - 570bc9ebecd92723d2d21500f4be314c  # Remaster
+            - 957d0f44b592285f26449575e8b1167e  # Special Edition
+        - trash_id: 9fc645b3cef52b149ec13ba3972245d1  # [Streaming Services] Miscellaneous
+          select:
+            - 3bf143ecd06f66ed88da4c704350af1d  # AUBC
+            - d9058beaae2e147183870304dd526761  # CBC
+            - f6ff65b3f4b464a79dcc75950fe20382  # CRAV
+            - fbca986396c5e695ef7b2def3c755d01  # OViD
+            - ab56ccdc473a1f2897c76187ea365be2  # STRP

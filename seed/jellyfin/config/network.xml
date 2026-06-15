@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Maps to /config/network.xml (JELLYFIN_CONFIG_DIR=/config). KnownProxies lets
+     Jellyfin trust the X-Forwarded-* headers from nginx so it sees real client
+     IPs. It matches proxies by IP, so we use the Docker bridge range (nginx's
+     container IP lives here) rather than the hostname "nginx", which depends on
+     the build resolving it. -->
+<NetworkConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <BaseUrl></BaseUrl>
+  <EnableHttps>false</EnableHttps>
+  <RequireHttps>false</RequireHttps>
+  <InternalHttpPort>8096</InternalHttpPort>
+  <EnableRemoteAccess>true</EnableRemoteAccess>
+  <EnablePublishedServerUriByRequest>true</EnablePublishedServerUriByRequest>
+  <PublishedServerUriBySubnet>
+    <string>all=https://${JELLYFIN_HOSTNAME}</string>
+  </PublishedServerUriBySubnet>
+  <KnownProxies>
+    <string>172.16.0.0/12</string>
+  </KnownProxies>
+</NetworkConfiguration>

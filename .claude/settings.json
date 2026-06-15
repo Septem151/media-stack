@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"REPO STANDARDS (this repo): Python runtime is stdlib-only; code style is enforced by pyproject.toml. Before finishing code changes, run the dev verbs (./scripts/stack fmt, then lint, then check) and leave them clean: black 88-col, isort, pylint 10/10, mypy --strict zero issues. Full type hints on every function (params + return). Double quotes and f-strings only. Comments must be TERSE and DECLARATIVE: no verbose prose, no restating the code; put long rationale in README Design notes. See CLAUDE.md for the full conventions and the working agreement (plan first; confirm destructive commands; sudo is handed to the operator; do not commit).\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

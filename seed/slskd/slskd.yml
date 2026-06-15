@@ -1,0 +1,21 @@
+# Rendered once to ../../appdata/slskd/slskd.yml (mode 660) by stack up. The
+# only secret injected here is the web UI password, which stack up PROMPTS for
+# at first run (Pi-hole pattern) — it is single-quoted below so any characters are
+# YAML-safe. The Soulseek account username/password are LEFT BLANK on purpose:
+# enter them once in the slskd web UI (System > Options; SLSKD_REMOTE_CONFIGURATION
+# is enabled in compose.yaml), so the Soulseek password only ever lives in this
+# 660 file that slskd owns — never in .env and never in the container env (so it
+# can't surface in `docker inspect`). The appdata/slskd directory is locked to
+# svc-slskd by stack setup (2700 + operator ACL), so this file is not readable
+# by the other services in the shared media group either.
+#
+# Seeded once: with remote configuration on, slskd rewrites this file from the web
+# UI, so stack up never clobbers it. To reset the web UI password, delete
+# appdata/slskd/slskd.yml and re-run stack up (you'll be prompted again).
+soulseek:
+  username:
+  password:
+web:
+  authentication:
+    username: slskd
+    password: '${SLSKD_WEBUI_PASSWORD}'

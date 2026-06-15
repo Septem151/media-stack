@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Maps to /config/system.xml (JELLYFIN_CONFIG_DIR=/config). Seeded AFTER first
+     boot by stack up; the wizard stays enabled so you create the admin in the
+     UI (a fresh DB has no admin, so completing the wizard up front would lock you
+     out). -->
+<ServerConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <IsStartupWizardCompleted>false</IsStartupWizardCompleted>
+  <ServerName>${JELLYFIN_SERVER_NAME}</ServerName>
+  <PluginRepositories>
+    <RepositoryInfo>
+      <Name>Jellyfin Stable</Name>
+      <Url>https://repo.jellyfin.org/files/plugin/manifest.json</Url>
+      <Enabled>true</Enabled>
+    </RepositoryInfo>
+  </PluginRepositories>
+  <EnableMetrics>false</EnableMetrics>
+  <QuickConnectAvailable>true</QuickConnectAvailable>
+  <EnableCaseSensitiveItemIds>true</EnableCaseSensitiveItemIds>
+  <CachePath></CachePath>
+  <PreferredMetadataLanguage>en</PreferredMetadataLanguage>
+  <MetadataCountryCode>US</MetadataCountryCode>
+  <!-- Cap remote (off-LAN) streams at 4 Mbps to bound upstream/transcode load. -->
+  <RemoteClientBitrateLimit>4000000</RemoteClientBitrateLimit>
+  <!-- Per-type metadata tuning set in Dashboard. Only the non-default entries are
+       listed; Jellyfin fills the rest with empty defaults on load. OMDB has no
+       music-video data and TheAudioDB duplicates MusicBrainz, so both are off there. -->
+  <MetadataOptions>
+    <MetadataOptions>
+      <ItemType>MusicVideo</ItemType>
+      <DisabledMetadataSavers />
+      <LocalMetadataReaderOrder />
+      <DisabledMetadataFetchers>
+        <string>The Open Movie Database</string>
+      </DisabledMetadataFetchers>
+      <MetadataFetcherOrder />
+      <DisabledImageFetchers>
+        <string>The Open Movie Database</string>
+      </DisabledImageFetchers>
+      <ImageFetcherOrder />
+    </MetadataOptions>
+    <MetadataOptions>
+      <ItemType>MusicAlbum</ItemType>
+      <DisabledMetadataSavers />
+      <LocalMetadataReaderOrder />
+      <DisabledMetadataFetchers>
+        <string>TheAudioDB</string>
+      </DisabledMetadataFetchers>
+      <MetadataFetcherOrder />
+      <DisabledImageFetchers />
+      <ImageFetcherOrder />
+    </MetadataOptions>
+    <MetadataOptions>
+      <ItemType>MusicArtist</ItemType>
+      <DisabledMetadataSavers />
+      <LocalMetadataReaderOrder />
+      <DisabledMetadataFetchers>
+        <string>TheAudioDB</string>
+      </DisabledMetadataFetchers>
+      <MetadataFetcherOrder />
+      <DisabledImageFetchers />
+      <ImageFetcherOrder />
+    </MetadataOptions>
+  </MetadataOptions>
+</ServerConfiguration>
